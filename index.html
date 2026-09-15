@@ -163,7 +163,7 @@ const queue = {}, preloaded = {};
 async function search(s) {
   const lists = SUBJECTS[s];
   const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
-    + ' -murder -corpse -blood -war -nude -naked filew:>=700'
+    + ' -murder -corpse -blood -war -nude -naked filew:>699'
     + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
     + (s === 'film' ? ' -intertitle -"title card" -credits -logo' : '')
     + (s === 'film' && medium === 'art' ? ' -poster -storyboard' : '')
@@ -190,6 +190,10 @@ async function search(s) {
   };
   let pages = Object.values(data.query?.pages || {}).filter(keep);
   if (!pages.length && offset) { data = await run(0); pages = Object.values(data.query?.pages || {}).filter(keep); }
+  if (!pages.length) {   // last resort: same query without the size filter
+    data = await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=0').replace(encodeURIComponent(' filew:>699'), ''))).json();
+    pages = Object.values(data.query?.pages || {}).filter(p => keep(p) && (p.imageinfo[0].width || 0) >= 600);
+  }
   return pages.sort(() => Math.random() - .5).map(p => {
     const info = p.imageinfo[0], meta = info.extmetadata || {};
     return { src: info.thumburl || info.url, page: info.descriptionurl,
