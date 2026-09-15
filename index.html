@@ -134,7 +134,9 @@ const SUBJECTS = {
   },
   film: {
     photo: ['film screenshot', 'film still scene', 'silent film frame', 'movie screenshot black and white', 'film noir still'],
-    art: ['animated film frame', 'animation cel', 'animated short film screenshot', 'stop motion film still', 'concept art film painting'],
+    art: ['animated cartoon film screenshot', 'hand-drawn animation frame film', 'animation cel painted', 'stop motion puppet film still',
+          'silhouette animation film Lotte Reiniger', 'cutout animation film frame', 'claymation film still', 'embroidered animation film',
+          'felt textile stop motion animation', 'mixed media animated short film', 'sand animation film frame', 'paint on glass animation'],
   },
 };
 // Keep it pleasant: excluded from every search and re-checked on each result
@@ -165,7 +167,9 @@ async function search(s) {
     + '&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=1200';
   let data = await (await fetch(url)).json();
   if (!data.query?.pages && offset) data = await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=0'))).json();
-  const ART = /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration|animat|cel\b|concept art/i;
+  const ART = s === 'film'
+    ? /animat|cartoon|stop.motion|puppet|claymation|clay|cutout|cut-out|silhouette|hand.?drawn|\bcel\b|embroider|textile|felt|mixed.media|sand animation|paint.on.glass|pixilation/i
+    : /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration/i;
   const pages = Object.values(data.query?.pages || {}).filter(p => {
     if (!p.imageinfo) return false;
     const meta = p.imageinfo[0].extmetadata || {};
