@@ -165,6 +165,7 @@ async function search(s) {
   const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
     + ' ' + BLOCK.map(w => '-' + w).join(' ')
     + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
+    + (s === 'film' ? ' -intertitle -"title card" -credits -logo' : '')
     + (s === 'film' && medium === 'art' ? ' -poster -storyboard' : '')
     + (s === 'human' ? ' -animal -spider -insect -snake -dog -cat -bird -horse -paw -claw -hoof -fur -statue -sculpture -mannequin' : '');
   const offset = Math.floor(Math.random() * (s === 'film' ? 40 : 150));
@@ -183,6 +184,7 @@ async function search(s) {
     const meta = p.imageinfo[0].extmetadata || {};
     const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
     if (BLOCK_RE.test(tags)) return false;
+    if (s === 'film' && /intertitle|title card|title screen|opening credits|end credits|closing credits|caption card|logo|text frame|typograph/i.test(tags)) return false;
     if (s === 'film' && medium === 'art' && /poster|lobby card|storyboard|model sheet|concept art|sketch|toy|figurine|merchandise/i.test(tags)) return false;
     const looksArt = ART.test(tags);
     return medium === 'photo' ? !looksArt : looksArt;
@@ -247,8 +249,10 @@ async function next() {
     try {
       const ref = await fetchRef(s); delete preloaded[s + medium];
       const blobUrl = await download(ref.src);
+      const filmName = ref.title.replace(/\.[a-z0-9]+$/i, '').replace(/[_]+/g, ' ').replace(/\s*(screenshot|still|frame|scene)\s*\d*$/i, '').trim();
+      const who = s === 'film' ? 'From: ' + filmName : (ref.artist || 'Wikimedia Commons');
       const entry = { blobUrl, title: ref.title,
-        credit: `<a href="${ref.page}" target="_blank" rel="noopener">${ref.artist || 'Wikimedia Commons'}${ref.lic ? ' · ' + ref.lic : ''}</a>` };
+        credit: `<a href="${ref.page}" target="_blank" rel="noopener">${who}${ref.lic ? ' · ' + ref.lic : ''}</a>` };
       try { localStorage.setItem('last', JSON.stringify({ src: ref.src, title: ref.title, credit: entry.credit })); } catch {}
       hist.splice(hi + 1); hist.push(entry); hi = hist.length - 1;           // drop any "forward" entries, append
       while (hist.length > 10) URL.revokeObjectURL(hist.shift().blobUrl), hi--;
