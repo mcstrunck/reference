@@ -299,11 +299,11 @@ timers.addEventListener('click' , e => {
   for (const c of timers.children) c.setAttribute('aria-pressed', c === b);
   restartTimer();
 });
-// --- resize the picture inside the window: pinch to zoom, drag to pan, double-tap resets
-let scale = 1, tx = 0, ty = 0, pts = new Map(), startDist = 0, startScale = 1, last = null, moved = false, lastTap = 0;
+// --- resize the picture inside the window: pinch to zoom, drag to pan (taps do nothing)
+let scale = 1, tx = 0, ty = 0, pts = new Map(), startDist = 0, startScale = 1, last = null;
 const apply = () => img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
 img.addEventListener('pointerdown', e => {
-  pts.set(e.pointerId, e); img.setPointerCapture(e.pointerId); moved = false;
+  pts.set(e.pointerId, e); img.setPointerCapture(e.pointerId);
   if (pts.size === 2) { const [a, b] = [...pts.values()]; startDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); startScale = scale; }
   else last = { x: e.clientX, y: e.clientY };
 });
@@ -312,19 +312,12 @@ img.addEventListener('pointermove', e => {
   if (pts.size === 2) {
     const [a, b] = [...pts.values()];
     scale = Math.min(6, Math.max(1, startScale * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / startDist));
-    moved = true; apply();
+    apply();
   } else if (last && scale > 1) {
-    tx += e.clientX - last.x; ty += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; moved = true; apply();
+    tx += e.clientX - last.x; ty += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; apply();
   }
 });
-const up = e => {
-  pts.delete(e.pointerId); last = null;
-  if (pts.size) return;
-  if (moved) return;
-  const now = Date.now();
-  if (now - lastTap < 300) { scale = 1; tx = ty = 0; apply(); lastTap = 0; }   // double-tap: reset
-  else { lastTap = now; setTimeout(() => { if (lastTap === now) next(); }, 300); }  // single tap: next
-};
+const up = e => { pts.delete(e.pointerId); last = null; };
 img.addEventListener('pointerup', up); img.addEventListener('pointercancel', up);
 img.addEventListener('load', () => { scale = 1; tx = ty = 0; apply(); });
 
