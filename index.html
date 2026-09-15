@@ -109,8 +109,14 @@
 // One is picked at random, then a random page of results, then a random file.
 const SUBJECTS = {
   human: {
-    photo: ['portrait photograph face', 'person standing full body photograph', 'hands photograph close-up', 'figure drawing model pose'],
-    art: ['portrait oil painting 17th century', 'renaissance portrait painting', 'figure painting academic nude study', 'impressionist portrait painting'],
+    photo: ['incategory:"Portrait photographs of women"', 'incategory:"Portrait photographs of men"', 'incategory:"Studio portrait photographs"',
+            'headshot photograph face woman', 'headshot photograph face man', 'half-length portrait photograph',
+            'full-length portrait photograph standing', 'person sitting chair portrait photograph', 'street portrait photograph person',
+            'incategory:"Human hands"', 'human hand photograph close-up', 'incategory:"Human feet"', 'human foot photograph close-up',
+            'incategory:"Human ears"', 'incategory:"Human eyes"', 'human eye photograph close-up', 'human mouth lips photograph close-up',
+            'human nose profile photograph close-up'],
+    art: ['portrait oil painting 17th century', 'renaissance portrait painting', 'figure painting full-length portrait', 'impressionist portrait painting',
+          'study of hands drawing', 'anatomical study drawing hand foot', 'self-portrait painting'],
   },
   animal: {
     photo: ['cat photograph', 'dog portrait photograph', 'horse photograph', 'bird perched photograph', 'wild animal photograph'],
@@ -131,6 +137,11 @@ const SUBJECTS = {
     art: ['animated film frame', 'animation cel', 'animated short film screenshot', 'stop motion film still', 'concept art film painting'],
   },
 };
+// Keep it pleasant: excluded from every search and re-checked on each result
+const BLOCK = ['murder','killing','corpse','cadaver','dead','death','autopsy','morgue','funeral','grave','blood','wound','injury',
+  'surgery','medical','disease','lesion','crime','execution','war','battle','weapon','gun','gore','horror','skull','skeleton',
+  'accident','victim','torture','protest','riot','nude','naked','erotic'];
+const BLOCK_RE = new RegExp('\\b(' + BLOCK.join('|') + ')', 'i');
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
 let subject = 'random', medium = 'photo', timerId = null, seconds = 0;
@@ -144,7 +155,9 @@ const queue = {}, preloaded = {};
 async function search(s) {
   const lists = SUBJECTS[s];
   const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
-    + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '');
+    + ' ' + BLOCK.map(w => '-' + w).join(' ')
+    + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
+    + (s === 'human' ? ' -animal -spider -insect -snake -dog -cat -bird -horse -paw -claw -hoof -fur -statue -sculpture -mannequin' : '');
   const offset = Math.floor(Math.random() * 150);
   const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
     + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
@@ -157,6 +170,7 @@ async function search(s) {
     if (!p.imageinfo) return false;
     const meta = p.imageinfo[0].extmetadata || {};
     const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
+    if (BLOCK_RE.test(tags)) return false;
     const looksArt = ART.test(tags);
     return medium === 'photo' ? !looksArt : looksArt;
   });
