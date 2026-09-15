@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2b2724">
+<title>Marion’s Reference Pop-Up</title>
+<meta name="apple-mobile-web-app-title" content="Marion’s Reference Pop-Up">
+<style>
+  :root{
+    --bg:#2b2724; --bar:#221f1c; --ink:#efe9e0; --dim:#9c948a;
+    --line:#3a3531; --hit:#e8b64b;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font:15px/1.4 -apple-system,system-ui,sans-serif;-webkit-user-select:none}
+  body{display:flex;flex-direction:column;overflow:hidden}
+  #stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #img{width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .25s}
+  body.fill #img{object-fit:cover}
+  #fit{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;height:26px;padding:0 10px}
+  body.nobar #fit{top:calc(8px + env(safe-area-inset-top))}
+  #img.on{opacity:1}
+  #img{transform-origin:center center;touch-action:none;will-change:transform}
+  body.nobar #bar{display:none}
+  #hide{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;height:26px;padding:0 10px}
+  body.nobar #hide{top:calc(8px + env(safe-area-inset-top))}
+  #msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:24px;color:var(--dim);pointer-events:none}
+  #prog{position:absolute;top:0;left:0;height:3px;width:0;background:var(--hit);transition:width .15s;display:none}
+  #prog.busy{display:block;width:30%;animation:slide 1.2s ease-in-out infinite}
+  @keyframes slide{0%{left:-30%}100%{left:100%}}
+  @media (prefers-reduced-motion:reduce){#prog.busy{animation:none;width:100%;opacity:.4}}
+  #back,#dl{margin-left:auto}
+  #back[disabled]{opacity:.35}
+  #credit{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:11px;color:var(--dim);
+    background:linear-gradient(transparent,rgba(0,0,0,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #credit a{color:inherit}
+  #bar{background:var(--bar);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;gap:5px}
+  .row{display:flex;gap:4px;align-items:center;min-height:30px}
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .lbl{flex:none;width:50px;font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.06em}
+  button{font:inherit;color:var(--ink);background:none;border:1px solid var(--line);
+    border-radius:999px;height:30px;padding:0 10px;cursor:pointer;line-height:1}
+  button:focus-visible{outline:2px solid var(--hit);outline-offset:2px}
+  #timers{display:flex;gap:6px;flex-wrap:wrap}
+  #medium{display:inline-flex;border:1px solid var(--hit);border-radius:999px;overflow:hidden}
+  #medium button{border:0;border-radius:0;height:28px;padding:0 14px;color:var(--hit);background:none}
+  #medium button + button{border-left:1px solid var(--hit)}
+  #medium button[aria-pressed="true"]{background:var(--hit);color:#1c1a17}
+  .chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  #clock{position:relative;width:30px;height:30px;flex:none}
+  #clock.off{visibility:hidden}
+  #clock svg{width:100%;height:100%}
+  #ring{stroke-dasharray:106.8;transition:stroke-dashoffset 1s linear}
+  #digits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:9px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){#ring{transition:none}}
+  @media (prefers-reduced-motion:reduce){#img{transition:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="prog"></div>
+  <img id="img" alt="">
+  <div id="msg">Loading a reference…</div>
+  <div id="credit"></div>
+  <button id="fit" aria-label="Fit or fill the window">Fit</button>
+  <button id="hide" aria-label="Show or hide controls">Hide bar</button>
+</div>
+<div id="bar">
+  <div class="row"><span class="lbl">THEMES</span><div class="chips" id="chips">
+    <button data-s="random" aria-pressed="true">Surprise me</button>
+    <button data-s="human">Human</button>
+    <button data-s="animal">Animal</button>
+    <button data-s="still">Still life</button>
+    <button data-s="landscape">Landscape</button>
+    <button data-s="film">Film</button>
+  </div></div>
+  <div class="row"><span class="lbl">KIND</span>
+    <div id="medium" role="group" aria-label="Photo or painting">
+      <button data-m="photo" aria-pressed="true">📷 Photo</button>
+      <button data-m="art">🎨 Painting</button>
+    </div>
+  </div>
+  <div class="row"><span class="lbl">TIME</span>
+    <div class="chips" id="timers" role="group" aria-label="Pose timer">
+      <button data-t="0" aria-pressed="true">Timer off</button>
+      <button data-t="300">5m</button>
+      <button data-t="600">10m</button>
+      <button data-t="900">15m</button>
+      <button data-t="1200">20m</button>
+      <button data-t="1800">30m</button>
+      <button data-t="3600">1h</button>
+    </div>
+    <div id="clock" class="off">
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" fill="none" stroke="var(--line)" stroke-width="3"/>
+        <circle id="ring" cx="20" cy="20" r="17" fill="none" stroke="var(--hit)" stroke-width="3"
+          stroke-linecap="round" transform="rotate(-90 20 20)"/>
+      </svg>
+      <span id="digits"></span>
+    </div>
+    <button id="back" disabled aria-label="Previous image">← Back</button>
+  </div>
+  <div class="row"><button id="dl" disabled>↓ Download</button></div>
+</div>
+
+<script>
+// Each subject maps to a few Wikimedia Commons search phrases.
+// One is picked at random, then a random page of results, then a random file.
+const SUBJECTS = {
+  human: {
+    photo: ['incategory:"Portrait photographs of women"', 'incategory:"Portrait photographs of men"', 'incategory:"Studio portrait photographs"',
+            'headshot photograph face woman', 'headshot photograph face man', 'half-length portrait photograph',
+            'full-length portrait photograph standing', 'person sitting chair portrait photograph', 'street portrait photograph person',
+            'incategory:"Human hands"', 'human hand photograph close-up', 'incategory:"Human feet"', 'human foot photograph close-up',
+            'incategory:"Human ears"', 'incategory:"Human eyes"', 'human eye photograph close-up', 'human mouth lips photograph close-up',
+            'human nose profile photograph close-up'],
+    art: ['portrait oil painting 17th century', 'renaissance portrait painting', 'figure painting full-length portrait', 'impressionist portrait painting',
+          'study of hands drawing', 'anatomical study drawing hand foot', 'self-portrait painting'],
+  },
+  animal: {
+    photo: ['cat photograph', 'dog portrait photograph', 'horse photograph', 'bird perched photograph', 'wild animal photograph'],
+    art: ['animal painting 19th century', 'horse painting oil', 'bird painting watercolour', 'dog painting oil canvas', 'ukiyo-e animal print'],
+  },
+  still: {
+    photo: ['incategory:"Still-life photographs"', 'incategory:"Food photography"', 'fruit bowl photograph', 'apples pears table photograph',
+            'flowers vase photograph still life', 'bread cheese wine table photograph', 'vegetables market photograph close-up',
+            'glass bottle jar photograph', 'coffee cup croissant photograph'],
+    art: ['still life painting dutch golden age', 'still life oil painting fruit', 'flower still life painting 17th century', 'still life painting cézanne'],
+  },
+  landscape: {
+    photo: ['mountain landscape photograph', 'coastal landscape photograph', 'forest path photograph', 'desert landscape photograph'],
+    art: ['landscape oil painting romanticism', 'hudson river school painting', 'impressionist landscape painting', 'dutch landscape painting 17th century', 'ukiyo-e landscape print'],
+  },
+  film: {
+    photo: ['film screenshot', 'film still scene', 'silent film frame', 'movie screenshot black and white', 'film noir still'],
+    art: ['animated film screenshot', 'animated cartoon screenshot', 'animation film frame', 'animated short film still',
+          'stop motion animation film', 'puppet animation film', 'silhouette animation', 'cutout animation', 'claymation',
+          'Fleischer cartoon screenshot', 'Soviet animation film', 'Soyuzmultfilm screenshot', 'animated film 1930s', 'animated film 1950s'],
+  },
+};
+// Keep it pleasant: excluded from every search and re-checked on each result
+const BLOCK = ['murder','killing','corpse','cadaver','dead','death','autopsy','morgue','funeral','grave','blood','wound','injury',
+  'surgery','medical','disease','lesion','crime','execution','war','battle','weapon','gun','gore','horror','skull','skeleton',
+  'accident','victim','torture','protest','riot','nude','naked','erotic'];
+const BLOCK_RE = new RegExp('\\b(' + BLOCK.join('|') + ')', 'i');
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+const hist = []; let hi = -1;
+let subject = 'random', medium = 'photo', timerId = null, seconds = 0;
+const img = document.getElementById('img'), msg = document.getElementById('msg'),
+      credit = document.getElementById('credit'), clock = document.getElementById('clock'),
+      timers = document.getElementById('timers');
+let timerLen = 0;
+
+// A search returns 20 files; keep them as a queue per subject and preload the next one
+const queue = {}, preloaded = {};
+async function search(s) {
+  const lists = SUBJECTS[s];
+  const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
+    + ' -murder -corpse -blood -war -nude -naked filew:>=700'
+    + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
+    + (s === 'film' ? ' -intertitle -"title card" -credits -logo' : '')
+    + (s === 'film' && medium === 'art' ? ' -poster -storyboard' : '')
+    + (s === 'human' ? ' -animal -spider -insect -dog -cat -bird -statue' : '');
+  const offset = Math.floor(Math.random() * (s === 'film' ? 30 : 100));
+  const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
+    + '&generator=search&gsrnamespace=6&gsrlimit=50&gsroffset=' + offset
+    + '&gsrsearch=' + encodeURIComponent(q)
+    + '&prop=imageinfo&iiprop=url|extmetadata|mime|size&iiurlwidth=1200';
+  const run = async off => (await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=' + off))).json());
+  let data = await run(offset);
+  const ART = s === 'film'
+    ? /animat|cartoon|stop.motion|puppet|claymation|clay|cutout|cut-out|silhouette|hand.?drawn|\bcel\b|embroider|textile|felt|mixed.media|sand animation|paint.on.glass|pixilation/i
+    : /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration/i;
+  const keep = p => {
+    if (!p.imageinfo) return false;
+    const meta = p.imageinfo[0].extmetadata || {};
+    const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
+    if (BLOCK_RE.test(tags)) return false;
+    if (s === 'film' && /intertitle|title card|title screen|opening credits|end credits|closing credits|caption card|logo|text frame|typograph/i.test(tags)) return false;
+    if (s === 'film' && medium === 'art' && /poster|lobby card|storyboard|model sheet|concept art|sketch|toy|figurine|merchandise/i.test(tags)) return false;
+    const looksArt = ART.test(tags);
+    return medium === 'photo' ? !looksArt : looksArt;
+  };
+  let pages = Object.values(data.query?.pages || {}).filter(keep);
+  if (!pages.length && offset) { data = await run(0); pages = Object.values(data.query?.pages || {}).filter(keep); }
+  return pages.sort(() => Math.random() - .5).map(p => {
+    const info = p.imageinfo[0], meta = info.extmetadata || {};
+    return { src: info.thumburl || info.url, page: info.descriptionurl,
+      artist: (meta.Artist?.value || '').replace(/<[^>]+>/g, '').trim(),
+      lic: meta.LicenseShortName?.value || '', title: p.title.replace(/^File:/, '') };
+  });
+}
+async function fetchRef(s) {
+  const k = s + medium;
+  for (let i = 0; i < 3 && !queue[k]?.length; i++) queue[k] = await search(s);
+  if (!queue[k].length) throw new Error('empty');
+  return queue[k].shift();
+}
+function preload(s) {               // warm the next image's thumbnail in the background
+  const k = s + medium; if (preloaded[k] || !queue[k]?.length) return;
+  const im = new Image(); im.src = queue[k][0].src; preloaded[k] = im;
+}
+const prog = document.getElementById('prog');
+function setProg(frac) {               // null = indeterminate pulse, 0..1 = real percent, false = hide
+  prog.classList.toggle('busy', frac === null);
+  prog.style.display = frac === false ? 'none' : 'block';
+  if (typeof frac === 'number') { prog.style.left = 0; prog.style.width = (frac * 100) + '%'; }
+}
+async function download(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error(r.status);
+  const total = +r.headers.get('Content-Length') || 0;
+  if (!total || !r.body) { setProg(null); return URL.createObjectURL(await r.blob()); }
+  const reader = r.body.getReader(), chunks = []; let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read(); if (done) break;
+    chunks.push(value); got += value.length;
+    setProg(got / total); msg.textContent = `Loading ${Math.round(got / total * 100)}%`;
+  }
+  return URL.createObjectURL(new Blob(chunks));
+}
+async function show(entry) {
+  img.classList.remove('on');
+  await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = entry.blobUrl; });
+  img.alt = entry.title; img.classList.add('on'); msg.textContent = ''; setProg(false);
+  credit.innerHTML = entry.credit; backBtn.disabled = hi <= 0; dlBtn.disabled = false; restartTimer();
+}
+function saveSettings() { try { localStorage.setItem('settings', JSON.stringify({ subject, medium, timerLen })); } catch {} }
+const dlBtn = document.getElementById('dl');
+dlBtn.onclick = async () => {
+  const e = hist[hi]; if (!e) return;
+  const blob = await (await fetch(e.blobUrl)).blob();
+  const name = e.title.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'reference.jpg';
+  const file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch {} }
+  const a = document.createElement('a'); a.href = e.blobUrl; a.download = name; a.click();
+};
+const backBtn = document.getElementById('back');
+backBtn.onclick = () => { if (hi > 0) { hi--; show(hist[hi]); } };
+async function next() {
+  img.classList.remove('on'); msg.textContent = 'Finding a reference…'; credit.textContent = ''; setProg(null);
+  const s = subject === 'random' ? pick(Object.keys(SUBJECTS)) : subject;
+  for (let tries = 0; tries < 3; tries++) {
+    try {
+      const ref = await fetchRef(s); delete preloaded[s + medium];
+      const blobUrl = await download(ref.src);
+      const filmName = ref.title.replace(/\.[a-z0-9]+$/i, '').replace(/[_]+/g, ' ').replace(/\s*(screenshot|still|frame|scene)\s*\d*$/i, '').trim();
+      const who = s === 'film' ? 'From: ' + filmName : (ref.artist || 'Wikimedia Commons');
+      const entry = { blobUrl, title: ref.title,
+        credit: `<a href="${ref.page}" target="_blank" rel="noopener">${who}${ref.lic ? ' · ' + ref.lic : ''}</a>` };
+      try { localStorage.setItem('last', JSON.stringify({ src: ref.src, title: ref.title, credit: entry.credit })); } catch {}
+      hist.splice(hi + 1); hist.push(entry); hi = hist.length - 1;           // drop any "forward" entries, append
+      while (hist.length > 10) URL.revokeObjectURL(hist.shift().blobUrl), hi--;
+      await show(entry); preload(s); return;
+    } catch (e) { /* try another */ }
+  }
+  setProg(false); msg.textContent = 'Couldn’t load an image. Check the connection and tap a subject again.';
+}
+
+const ring = document.getElementById('ring'), digits = document.getElementById('digits'), C = 106.8;
+function restartTimer() {
+  clearInterval(timerId); seconds = timerLen; clock.classList.toggle('off', !seconds);
+  if (!seconds) return;
+  ring.style.transition = 'none'; ring.style.strokeDashoffset = 0;   // full ring, no animate-in
+  requestAnimationFrame(() => ring.style.transition = '');
+  const tick = () => {
+    digits.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    ring.style.strokeDashoffset = C * (1 - seconds / timerLen);   // ring drains clockwise
+    if (seconds-- <= 0) next();
+  };
+  tick(); timerId = setInterval(tick, 1000);
+}
+
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  subject = b.dataset.s; saveSettings();
+  for (const c of e.currentTarget.children) c.setAttribute('aria-pressed', c === b);
+  next();
+});
+document.getElementById('medium').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  medium = b.dataset.m; saveSettings();
+  for (const c of e.currentTarget.children) c.setAttribute('aria-pressed', c === b);
+  next();
+});
+timers.addEventListener('click' , e => {
+  const b = e.target.closest('button'); if (!b) return;
+  timerLen = +b.dataset.t; saveSettings();
+  for (const c of timers.children) c.setAttribute('aria-pressed', c === b);
+  restartTimer();
+});
+// --- resize the picture inside the window: pinch to zoom, drag to pan, double-tap resets
+let scale = 1, tx = 0, ty = 0, pts = new Map(), startDist = 0, startScale = 1, last = null, moved = false, lastTap = 0;
+const apply = () => img.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+img.addEventListener('pointerdown', e => {
+  pts.set(e.pointerId, e); img.setPointerCapture(e.pointerId); moved = false;
+  if (pts.size === 2) { const [a, b] = [...pts.values()]; startDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); startScale = scale; }
+  else last = { x: e.clientX, y: e.clientY };
+});
+img.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
+  if (pts.size === 2) {
+    const [a, b] = [...pts.values()];
+    scale = Math.min(6, Math.max(1, startScale * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / startDist));
+    moved = true; apply();
+  } else if (last && scale > 1) {
+    tx += e.clientX - last.x; ty += e.clientY - last.y; last = { x: e.clientX, y: e.clientY }; moved = true; apply();
+  }
+});
+const up = e => {
+  pts.delete(e.pointerId); last = null;
+  if (pts.size) return;
+  if (moved) return;
+  const now = Date.now();
+  if (now - lastTap < 300) { scale = 1; tx = ty = 0; apply(); lastTap = 0; }   // double-tap: reset
+  else { lastTap = now; setTimeout(() => { if (lastTap === now) next(); }, 300); }  // single tap: next
+};
+img.addEventListener('pointerup', up); img.addEventListener('pointercancel', up);
+img.addEventListener('load', () => { scale = 1; tx = ty = 0; apply(); });
+
+async function restore() {
+  try {
+    const st = JSON.parse(localStorage.getItem('settings') || 'null');
+    if (st) {
+      subject = st.subject; medium = st.medium; timerLen = st.timerLen;
+      for (const c of document.getElementById('chips').children) c.setAttribute('aria-pressed', c.dataset.s === subject);
+      for (const c of document.getElementById('medium').children) c.setAttribute('aria-pressed', c.dataset.m === medium);
+      for (const c of timers.children) c.setAttribute('aria-pressed', +c.dataset.t === timerLen);
+    }
+    const last = JSON.parse(localStorage.getItem('last') || 'null');
+    if (!last) return false;
+    msg.textContent = 'Restoring last reference…'; setProg(null);
+    const entry = { blobUrl: await download(last.src), title: last.title, credit: last.credit };
+    hist.push(entry); hi = 0; await show(entry); return true;
+  } catch { return false; }
+}
+
+document.getElementById('fit').onclick = e => {
+  const fill = document.body.classList.toggle('fill');
+  e.target.textContent = fill ? 'Fill' : 'Fit';
+  scale = 1; tx = ty = 0; apply();
+};
+document.getElementById('hide').onclick = e => {
+  const off = document.body.classList.toggle('nobar');
+  e.target.textContent = off ? 'Show bar' : 'Hide bar';
+};
+restore().then(ok => { if (!ok) next(); });
+</script>
+</body>
+</html>
