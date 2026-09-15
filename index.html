@@ -29,17 +29,26 @@
   body.nobar #hide{top:calc(8px + env(safe-area-inset-top))}
   #msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     text-align:center;padding:24px;color:var(--dim);pointer-events:none}
+  #prog{position:absolute;top:0;left:0;height:3px;width:0;background:var(--hit);transition:width .15s;display:none}
+  #prog.busy{display:block;width:30%;animation:slide 1.2s ease-in-out infinite}
+  @keyframes slide{0%{left:-30%}100%{left:100%}}
+  @media (prefers-reduced-motion:reduce){#prog.busy{animation:none;width:100%;opacity:.4}}
   #credit{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:11px;color:var(--dim);
     background:linear-gradient(transparent,rgba(0,0,0,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #credit a{color:inherit}
   #bar{background:var(--bar);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-    display:flex;flex-direction:column;gap:8px}
-  .row{display:flex;gap:6px;align-items:center}
-  .chips{flex-wrap:wrap}
+    display:flex;flex-direction:column;gap:5px}
+  .row{display:flex;gap:4px;align-items:center}
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .lbl{flex:none;width:50px;font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.06em}
   button{font:inherit;color:var(--ink);background:none;border:1px solid var(--line);
-    border-radius:999px;padding:5px 11px;cursor:pointer}
+    border-radius:999px;padding:4px 10px;cursor:pointer}
   button:focus-visible{outline:2px solid var(--hit);outline-offset:2px}
   #timers{display:flex;gap:6px;flex-wrap:wrap}
+  #medium{display:inline-flex;border:1px solid var(--hit);border-radius:999px;overflow:hidden}
+  #medium button{border:0;border-radius:0;padding:6px 14px;color:var(--hit);background:none}
+  #medium button + button{border-left:1px solid var(--hit)}
+  #medium button[aria-pressed="true"]{background:var(--hit);color:#1c1a17;font-weight:600}
   .chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   #clock{margin-left:auto;position:relative;width:44px;height:44px;flex:none}
   #clock svg{width:100%;height:100%}
@@ -52,6 +61,7 @@
 </head>
 <body>
 <div id="stage">
+  <div id="prog"></div>
   <img id="img" alt="">
   <div id="msg">Loading a reference…</div>
   <div id="credit"></div>
@@ -59,16 +69,21 @@
   <button id="hide" aria-label="Show or hide controls">Hide bar</button>
 </div>
 <div id="bar">
-  <div class="row chips" id="chips">
+  <div class="row"><span class="lbl">THEMES</span><div class="chips" id="chips">
     <button data-s="random" aria-pressed="true">Surprise me</button>
     <button data-s="human">Human</button>
     <button data-s="animal">Animal</button>
     <button data-s="still">Still life</button>
     <button data-s="landscape">Landscape</button>
     <button data-s="film">Film</button>
-    <button data-s="art">Art</button>
+  </div></div>
+  <div class="row"><span class="lbl">KIND</span>
+    <div id="medium" role="group" aria-label="Photo or painting">
+      <button data-m="photo" aria-pressed="true">📷 Photo</button>
+      <button data-m="art">🎨 Painting</button>
+    </div>
   </div>
-  <div class="row">
+  <div class="row"><span class="lbl">TIME</span>
     <div class="chips" id="timers" role="group" aria-label="Pose timer">
       <button data-t="0" aria-pressed="true">Timer off</button>
       <button data-t="300">5m</button>
@@ -93,53 +108,96 @@
 // Each subject maps to a few Wikimedia Commons search phrases.
 // One is picked at random, then a random page of results, then a random file.
 const SUBJECTS = {
-  human: ['portrait photograph face', 'person standing full body photograph', 'hands photograph close-up', 'figure drawing model pose'],
-  animal: ['cat photograph', 'dog portrait photograph', 'horse photograph', 'bird perched photograph', 'wild animal photograph'],
-  still: ['still life photograph fruit', 'still life painting', 'vase flowers table photograph', 'kitchen objects still life'],
-  film: ['film screenshot', 'film still scene', 'silent film frame', 'movie screenshot black and white', 'film noir still'],
-  art: ['oil painting portrait 17th century', 'impressionist painting museum', 'renaissance painting', 'dutch golden age painting',
-        'baroque painting', 'post-impressionist painting', 'romanticism painting landscape', 'japanese woodblock print ukiyo-e'],
-  landscape: ['mountain landscape photograph', 'coastal landscape photograph', 'forest path photograph', 'rural landscape painting'],
+  human: {
+    photo: ['portrait photograph face', 'person standing full body photograph', 'hands photograph close-up', 'figure drawing model pose'],
+    art: ['portrait oil painting 17th century', 'renaissance portrait painting', 'figure painting academic nude study', 'impressionist portrait painting'],
+  },
+  animal: {
+    photo: ['cat photograph', 'dog portrait photograph', 'horse photograph', 'bird perched photograph', 'wild animal photograph'],
+    art: ['animal painting 19th century', 'horse painting oil', 'bird painting watercolour', 'dog painting oil canvas', 'ukiyo-e animal print'],
+  },
+  still: {
+    photo: ['still life photograph fruit', 'vase flowers table photograph', 'kitchen objects still life photograph'],
+    art: ['still life painting dutch golden age', 'still life oil painting fruit', 'flower still life painting 17th century', 'still life painting cézanne'],
+  },
+  landscape: {
+    photo: ['mountain landscape photograph', 'coastal landscape photograph', 'forest path photograph', 'desert landscape photograph'],
+    art: ['landscape oil painting romanticism', 'hudson river school painting', 'impressionist landscape painting', 'dutch landscape painting 17th century', 'ukiyo-e landscape print'],
+  },
+  film: {
+    photo: ['film screenshot', 'film still scene', 'silent film frame', 'movie screenshot black and white', 'film noir still'],
+    art: ['animated film frame', 'animation cel', 'animated short film screenshot', 'stop motion film still', 'concept art film painting'],
+  },
 };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-let subject = 'random', timerId = null, seconds = 0;
+let subject = 'random', medium = 'photo', timerId = null, seconds = 0;
 const img = document.getElementById('img'), msg = document.getElementById('msg'),
       credit = document.getElementById('credit'), clock = document.getElementById('clock'),
       timers = document.getElementById('timers');
 let timerLen = 0;
 
-async function fetchRef() {
-  const s = subject === 'random' ? pick(Object.keys(SUBJECTS)) : subject;
-  const q = pick(SUBJECTS[s]) + ' filetype:bitmap -incategory:"AI-generated images"';
-  const offset = Math.floor(Math.random() * 150);   // reach past the first page so it feels random
+// A search returns 20 files; keep them as a queue per subject and preload the next one
+const queue = {}, preloaded = {};
+async function search(s) {
+  const lists = SUBJECTS[s], q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"';
+  const offset = Math.floor(Math.random() * 150);
   const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
     + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
     + '&gsrsearch=' + encodeURIComponent(q)
-    + '&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1400';
-  const r = await fetch(url);
-  const data = await r.json();
+    + '&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1200';
+  const data = await (await fetch(url)).json();
   const pages = Object.values(data.query?.pages || {}).filter(p => p.imageinfo);
-  if (!pages.length) throw new Error('empty');
-  const p = pick(pages), info = p.imageinfo[0], meta = info.extmetadata || {};
-  const artist = (meta.Artist?.value || '').replace(/<[^>]+>/g, '').trim();
-  const lic = meta.LicenseShortName?.value || '';
-  return { src: info.thumburl || info.url, page: info.descriptionurl, artist, lic,
-           title: p.title.replace(/^File:/, '') };
+  return pages.sort(() => Math.random() - .5).map(p => {
+    const info = p.imageinfo[0], meta = info.extmetadata || {};
+    return { src: info.thumburl || info.url, page: info.descriptionurl,
+      artist: (meta.Artist?.value || '').replace(/<[^>]+>/g, '').trim(),
+      lic: meta.LicenseShortName?.value || '', title: p.title.replace(/^File:/, '') };
+  });
 }
-
+async function fetchRef(s) {
+  const k = s + medium;
+  if (!queue[k]?.length) queue[k] = await search(s);
+  if (!queue[k].length) throw new Error('empty');
+  return queue[k].shift();
+}
+function preload(s) {               // warm the next image's thumbnail in the background
+  const k = s + medium; if (preloaded[k] || !queue[k]?.length) return;
+  const im = new Image(); im.src = queue[k][0].src; preloaded[k] = im;
+}
+const prog = document.getElementById('prog');
+function setProg(frac) {               // null = indeterminate pulse, 0..1 = real percent, false = hide
+  prog.classList.toggle('busy', frac === null);
+  prog.style.display = frac === false ? 'none' : 'block';
+  if (typeof frac === 'number') { prog.style.left = 0; prog.style.width = (frac * 100) + '%'; }
+}
+async function download(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error(r.status);
+  const total = +r.headers.get('Content-Length') || 0;
+  if (!total || !r.body) { setProg(null); return URL.createObjectURL(await r.blob()); }
+  const reader = r.body.getReader(), chunks = []; let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read(); if (done) break;
+    chunks.push(value); got += value.length;
+    setProg(got / total); msg.textContent = `Loading ${Math.round(got / total * 100)}%`;
+  }
+  return URL.createObjectURL(new Blob(chunks));
+}
 async function next() {
-  img.classList.remove('on'); msg.textContent = 'Loading a reference…'; credit.textContent = '';
+  img.classList.remove('on'); msg.textContent = 'Finding a reference…'; credit.textContent = ''; setProg(null);
+  const s = subject === 'random' ? pick(Object.keys(SUBJECTS)) : subject;
   for (let tries = 0; tries < 3; tries++) {
     try {
-      const ref = await fetchRef();
-      await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = ref.src; });
-      img.alt = ref.title; img.classList.add('on'); msg.textContent = '';
+      const ref = await fetchRef(s); delete preloaded[s + medium];
+      const blobUrl = await download(ref.src);
+      await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = blobUrl; });
+      if (img.dataset.prev) URL.revokeObjectURL(img.dataset.prev); img.dataset.prev = blobUrl;
+      img.alt = ref.title; img.classList.add('on'); msg.textContent = ''; setProg(false);
       credit.innerHTML = `<a href="${ref.page}" target="_blank" rel="noopener">${ref.artist || 'Wikimedia Commons'}${ref.lic ? ' · ' + ref.lic : ''}</a>`;
-      restartTimer(); return;
+      restartTimer(); preload(s); return;
     } catch (e) { /* try another */ }
   }
-  msg.textContent = 'Couldn’t load an image. Check the connection and tap Next.';
+  setProg(false); msg.textContent = 'Couldn’t load an image. Check the connection and tap a subject again.';
 }
 
 const ring = document.getElementById('ring'), digits = document.getElementById('digits'), C = 106.8;
@@ -162,7 +220,13 @@ document.getElementById('chips').addEventListener('click', e => {
   for (const c of e.currentTarget.children) c.setAttribute('aria-pressed', c === b);
   next();
 });
-timers.addEventListener('click', e => {
+document.getElementById('medium').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  medium = b.dataset.m;
+  for (const c of e.currentTarget.children) c.setAttribute('aria-pressed', c === b);
+  next();
+});
+timers.addEventListener('click' , e => {
   const b = e.target.closest('button'); if (!b) return;
   timerLen = +b.dataset.t;
   for (const c of timers.children) c.setAttribute('aria-pressed', c === b);
