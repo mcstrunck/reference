@@ -163,24 +163,23 @@ const queue = {}, preloaded = {};
 async function search(s) {
   const lists = SUBJECTS[s];
   const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
-    + ' ' + BLOCK.map(w => '-' + w).join(' ')
+    + ' -murder -corpse -blood -war -nude -naked filew:>=700'
     + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
     + (s === 'film' ? ' -intertitle -"title card" -credits -logo' : '')
     + (s === 'film' && medium === 'art' ? ' -poster -storyboard' : '')
-    + (s === 'human' ? ' -animal -spider -insect -snake -dog -cat -bird -horse -paw -claw -hoof -fur -statue -sculpture -mannequin' : '');
-  const offset = Math.floor(Math.random() * (s === 'film' ? 40 : 150));
+    + (s === 'human' ? ' -animal -spider -insect -dog -cat -bird -statue' : '');
+  const offset = Math.floor(Math.random() * (s === 'film' ? 30 : 100));
   const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
-    + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
+    + '&generator=search&gsrnamespace=6&gsrlimit=50&gsroffset=' + offset
     + '&gsrsearch=' + encodeURIComponent(q)
     + '&prop=imageinfo&iiprop=url|extmetadata|mime|size&iiurlwidth=1200';
-  let data = await (await fetch(url)).json();
-  if (!data.query?.pages && offset) data = await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=0'))).json();
+  const run = async off => (await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=' + off))).json());
+  let data = await run(offset);
   const ART = s === 'film'
     ? /animat|cartoon|stop.motion|puppet|claymation|clay|cutout|cut-out|silhouette|hand.?drawn|\bcel\b|embroider|textile|felt|mixed.media|sand animation|paint.on.glass|pixilation/i
     : /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration/i;
-  const pages = Object.values(data.query?.pages || {}).filter(p => {
+  const keep = p => {
     if (!p.imageinfo) return false;
-    if ((p.imageinfo[0].width || 0) < 700) return false;   // too small to draw from
     const meta = p.imageinfo[0].extmetadata || {};
     const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
     if (BLOCK_RE.test(tags)) return false;
@@ -188,7 +187,9 @@ async function search(s) {
     if (s === 'film' && medium === 'art' && /poster|lobby card|storyboard|model sheet|concept art|sketch|toy|figurine|merchandise/i.test(tags)) return false;
     const looksArt = ART.test(tags);
     return medium === 'photo' ? !looksArt : looksArt;
-  });
+  };
+  let pages = Object.values(data.query?.pages || {}).filter(keep);
+  if (!pages.length && offset) { data = await run(0); pages = Object.values(data.query?.pages || {}).filter(keep); }
   return pages.sort(() => Math.random() - .5).map(p => {
     const info = p.imageinfo[0], meta = info.extmetadata || {};
     return { src: info.thumburl || info.url, page: info.descriptionurl,
