@@ -117,7 +117,9 @@ const SUBJECTS = {
     art: ['animal painting 19th century', 'horse painting oil', 'bird painting watercolour', 'dog painting oil canvas', 'ukiyo-e animal print'],
   },
   still: {
-    photo: ['still life photograph fruit', 'vase flowers table photograph', 'kitchen objects still life photograph'],
+    photo: ['incategory:"Still-life photographs"', 'incategory:"Food photography"', 'fruit bowl photograph', 'apples pears table photograph',
+            'flowers vase photograph still life', 'bread cheese wine table photograph', 'vegetables market photograph close-up',
+            'glass bottle jar photograph', 'coffee cup croissant photograph'],
     art: ['still life painting dutch golden age', 'still life oil painting fruit', 'flower still life painting 17th century', 'still life painting cézanne'],
   },
   landscape: {
@@ -148,7 +150,8 @@ async function search(s) {
     + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
     + '&gsrsearch=' + encodeURIComponent(q)
     + '&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=1200';
-  const data = await (await fetch(url)).json();
+  let data = await (await fetch(url)).json();
+  if (!data.query?.pages && offset) data = await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=0'))).json();
   const ART = /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration|animat|cel\b|concept art/i;
   const pages = Object.values(data.query?.pages || {}).filter(p => {
     if (!p.imageinfo) return false;
