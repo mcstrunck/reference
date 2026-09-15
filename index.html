@@ -140,14 +140,23 @@ let timerLen = 0;
 // A search returns 20 files; keep them as a queue per subject and preload the next one
 const queue = {}, preloaded = {};
 async function search(s) {
-  const lists = SUBJECTS[s], q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"';
+  const lists = SUBJECTS[s];
+  const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
+    + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '');
   const offset = Math.floor(Math.random() * 150);
   const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
     + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
     + '&gsrsearch=' + encodeURIComponent(q)
-    + '&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1200';
+    + '&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=1200';
   const data = await (await fetch(url)).json();
-  const pages = Object.values(data.query?.pages || {}).filter(p => p.imageinfo);
+  const ART = /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration|animat|cel\b|concept art/i;
+  const pages = Object.values(data.query?.pages || {}).filter(p => {
+    if (!p.imageinfo) return false;
+    const meta = p.imageinfo[0].extmetadata || {};
+    const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
+    const looksArt = ART.test(tags);
+    return medium === 'photo' ? !looksArt : looksArt;
+  });
   return pages.sort(() => Math.random() - .5).map(p => {
     const info = p.imageinfo[0], meta = info.extmetadata || {};
     return { src: info.thumburl || info.url, page: info.descriptionurl,
@@ -157,7 +166,7 @@ async function search(s) {
 }
 async function fetchRef(s) {
   const k = s + medium;
-  if (!queue[k]?.length) queue[k] = await search(s);
+  for (let i = 0; i < 3 && !queue[k]?.length; i++) queue[k] = await search(s);
   if (!queue[k].length) throw new Error('empty');
   return queue[k].shift();
 }
