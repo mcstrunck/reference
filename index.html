@@ -33,7 +33,7 @@
   #prog.busy{display:block;width:30%;animation:slide 1.2s ease-in-out infinite}
   @keyframes slide{0%{left:-30%}100%{left:100%}}
   @media (prefers-reduced-motion:reduce){#prog.busy{animation:none;width:100%;opacity:.4}}
-  #back{position:absolute;right:8px;bottom:28px;background:rgba(0,0,0,.55);border-color:transparent;font-size:12px;padding:5px 12px}
+  #back,#dl{margin-left:auto}
   #back[disabled]{opacity:.35}
   #credit{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:11px;color:var(--dim);
     background:linear-gradient(transparent,rgba(0,0,0,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -52,7 +52,7 @@
   #medium button + button{border-left:1px solid var(--hit)}
   #medium button[aria-pressed="true"]{background:var(--hit);color:#1c1a17;font-weight:600}
   .chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-  #clock{margin-left:auto;position:relative;width:44px;height:44px;flex:none}
+  #clock{position:relative;width:44px;height:44px;flex:none}
   #clock svg{width:100%;height:100%}
   #ring{stroke-dasharray:106.8;transition:stroke-dashoffset 1s linear}
   #digits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -67,7 +67,6 @@
   <img id="img" alt="">
   <div id="msg">Loading a reference…</div>
   <div id="credit"></div>
-  <button id="back" disabled aria-label="Previous image">← Back</button>
   <button id="fit" aria-label="Fit or fill the window">Fit</button>
   <button id="hide" aria-label="Show or hide controls">Hide bar</button>
 </div>
@@ -104,7 +103,9 @@
       </svg>
       <span id="digits"></span>
     </div>
+    <button id="back" disabled aria-label="Previous image">← Back</button>
   </div>
+  <div class="row"><button id="dl" disabled>↓ Download</button></div>
 </div>
 
 <script>
@@ -224,9 +225,18 @@ async function show(entry) {
   img.classList.remove('on');
   await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = entry.blobUrl; });
   img.alt = entry.title; img.classList.add('on'); msg.textContent = ''; setProg(false);
-  credit.innerHTML = entry.credit; backBtn.disabled = hi <= 0; restartTimer();
+  credit.innerHTML = entry.credit; backBtn.disabled = hi <= 0; dlBtn.disabled = false; restartTimer();
 }
 function saveSettings() { try { localStorage.setItem('settings', JSON.stringify({ subject, medium, timerLen })); } catch {} }
+const dlBtn = document.getElementById('dl');
+dlBtn.onclick = async () => {
+  const e = hist[hi]; if (!e) return;
+  const blob = await (await fetch(e.blobUrl)).blob();
+  const name = e.title.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'reference.jpg';
+  const file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch {} }
+  const a = document.createElement('a'); a.href = e.blobUrl; a.download = name; a.click();
+};
 const backBtn = document.getElementById('back');
 backBtn.onclick = () => { if (hi > 0) { hi--; show(hist[hi]); } };
 async function next() {
