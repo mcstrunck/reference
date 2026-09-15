@@ -20,12 +20,12 @@
   #stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
   #img{width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .25s}
   body.fill #img{object-fit:cover}
-  #fit{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;padding:4px 10px}
+  #fit{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;height:26px;padding:0 10px}
   body.nobar #fit{top:calc(8px + env(safe-area-inset-top))}
   #img.on{opacity:1}
   #img{transform-origin:center center;touch-action:none;will-change:transform}
   body.nobar #bar{display:none}
-  #hide{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;padding:4px 10px}
+  #hide{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);border-color:transparent;font-size:12px;height:26px;padding:0 10px}
   body.nobar #hide{top:calc(8px + env(safe-area-inset-top))}
   #msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     text-align:center;padding:24px;color:var(--dim);pointer-events:none}
@@ -40,23 +40,24 @@
   #credit a{color:inherit}
   #bar{background:var(--bar);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));
     display:flex;flex-direction:column;gap:5px}
-  .row{display:flex;gap:4px;align-items:center}
+  .row{display:flex;gap:4px;align-items:center;min-height:30px}
   .chips{display:flex;gap:4px;flex-wrap:wrap}
   .lbl{flex:none;width:50px;font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.06em}
   button{font:inherit;color:var(--ink);background:none;border:1px solid var(--line);
-    border-radius:999px;padding:4px 10px;cursor:pointer}
+    border-radius:999px;height:30px;padding:0 10px;cursor:pointer;line-height:1}
   button:focus-visible{outline:2px solid var(--hit);outline-offset:2px}
   #timers{display:flex;gap:6px;flex-wrap:wrap}
   #medium{display:inline-flex;border:1px solid var(--hit);border-radius:999px;overflow:hidden}
-  #medium button{border:0;border-radius:0;padding:6px 14px;color:var(--hit);background:none}
+  #medium button{border:0;border-radius:0;height:28px;padding:0 14px;color:var(--hit);background:none}
   #medium button + button{border-left:1px solid var(--hit)}
-  #medium button[aria-pressed="true"]{background:var(--hit);color:#1c1a17;font-weight:600}
+  #medium button[aria-pressed="true"]{background:var(--hit);color:#1c1a17}
   .chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-  #clock{position:relative;width:44px;height:44px;flex:none}
+  #clock{position:relative;width:30px;height:30px;flex:none}
+  #clock.off{visibility:hidden}
   #clock svg{width:100%;height:100%}
   #ring{stroke-dasharray:106.8;transition:stroke-dashoffset 1s linear}
   #digits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-size:11px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+    font-size:9px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
   @media (prefers-reduced-motion:reduce){#ring{transition:none}}
   @media (prefers-reduced-motion:reduce){#img{transition:none}}
 </style>
@@ -95,7 +96,7 @@
       <button data-t="1800">30m</button>
       <button data-t="3600">1h</button>
     </div>
-    <div id="clock" hidden>
+    <div id="clock" class="off">
       <svg viewBox="0 0 40 40" aria-hidden="true">
         <circle cx="20" cy="20" r="17" fill="none" stroke="var(--line)" stroke-width="3"/>
         <circle id="ring" cx="20" cy="20" r="17" fill="none" stroke="var(--hit)" stroke-width="3"
@@ -138,10 +139,9 @@ const SUBJECTS = {
   },
   film: {
     photo: ['film screenshot', 'film still scene', 'silent film frame', 'movie screenshot black and white', 'film noir still'],
-    art: ['animated film screenshot', 'animated cartoon film still frame', 'animated short film screenshot', 'hand-drawn animated film still',
-          'stop motion animated film screenshot', 'puppet animation film still', 'silhouette animation film still Reiniger',
-          'cutout animation film screenshot', 'claymation film screenshot', 'embroidered animation film still', 'textile felt animation film still',
-          'mixed media animated film still', 'sand animation film still', 'paint on glass animated film still'],
+    art: ['animated film screenshot', 'animated cartoon screenshot', 'animation film frame', 'animated short film still',
+          'stop motion animation film', 'puppet animation film', 'silhouette animation', 'cutout animation', 'claymation',
+          'Fleischer cartoon screenshot', 'Soviet animation film', 'Soyuzmultfilm screenshot', 'animated film 1930s', 'animated film 1950s'],
   },
 };
 // Keep it pleasant: excluded from every search and re-checked on each result
@@ -165,13 +165,13 @@ async function search(s) {
   const q = pick(lists[medium] || lists.photo) + ' filetype:bitmap -incategory:"AI-generated images"'
     + ' ' + BLOCK.map(w => '-' + w).join(' ')
     + (medium === 'photo' ? ' -painting -oil -canvas -engraving -drawing' : '')
-    + (s === 'film' && medium === 'art' ? ' -poster -lobby -storyboard -sketch -"model sheet" -"concept art" -drawing -toy -figurine' : '')
+    + (s === 'film' && medium === 'art' ? ' -poster -storyboard' : '')
     + (s === 'human' ? ' -animal -spider -insect -snake -dog -cat -bird -horse -paw -claw -hoof -fur -statue -sculpture -mannequin' : '');
-  const offset = Math.floor(Math.random() * 150);
+  const offset = Math.floor(Math.random() * (s === 'film' ? 40 : 150));
   const url = 'https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query'
     + '&generator=search&gsrnamespace=6&gsrlimit=20&gsroffset=' + offset
     + '&gsrsearch=' + encodeURIComponent(q)
-    + '&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=1200';
+    + '&prop=imageinfo&iiprop=url|extmetadata|mime|size&iiurlwidth=1200';
   let data = await (await fetch(url)).json();
   if (!data.query?.pages && offset) data = await (await fetch(url.replace('gsroffset=' + offset, 'gsroffset=0'))).json();
   const ART = s === 'film'
@@ -179,6 +179,7 @@ async function search(s) {
     : /painting|drawing|engraving|etching|lithograph|woodcut|ukiyo|print|watercolou?r|fresco|illustration/i;
   const pages = Object.values(data.query?.pages || {}).filter(p => {
     if (!p.imageinfo) return false;
+    if ((p.imageinfo[0].width || 0) < 700) return false;   // too small to draw from
     const meta = p.imageinfo[0].extmetadata || {};
     const tags = (meta.Categories?.value || '') + ' ' + (meta.ImageDescription?.value || '') + ' ' + p.title;
     if (BLOCK_RE.test(tags)) return false;
@@ -259,7 +260,7 @@ async function next() {
 
 const ring = document.getElementById('ring'), digits = document.getElementById('digits'), C = 106.8;
 function restartTimer() {
-  clearInterval(timerId); seconds = timerLen; clock.hidden = !seconds;
+  clearInterval(timerId); seconds = timerLen; clock.classList.toggle('off', !seconds);
   if (!seconds) return;
   ring.style.transition = 'none'; ring.style.strokeDashoffset = 0;   // full ring, no animate-in
   requestAnimationFrame(() => ring.style.transition = '');
